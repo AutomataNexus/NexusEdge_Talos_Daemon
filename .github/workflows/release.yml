@@ -1,0 +1,265 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '!v*-pi4-bullseye*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  packages: write
+  actions: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PRIVATE_REPO: AutomataNexus/Talos
+
+jobs:
+  build-pi5:
+    name: Build pi5-bookworm-aarch64
+    runs-on: ubuntu-24.04-arm
+    container: debian:bookworm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PRIVATE_REPO }}
+          token: ${{ secrets.PROJECTOPERATIONS }}
+
+      - name: Install build dependencies
+        run: |
+          rm -f /etc/apt/apt.conf.d/docker-clean
+          apt-get update -qq
+          apt-get install -y -qq curl build-essential pkg-config git ca-certificates libssl-dev
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Build release binary
+        run: |
+          . "$HOME/.cargo/env"
+          cd hardware_daemon && cargo build --release -p nexusedge-talos-daemon
+
+      - name: Package binary
+        run: |
+          mkdir -p release
+          cp hardware_daemon/target/release/nexusedge-talos-daemon release/
+          strip release/nexusedge-talos-daemon || true
+          cd release
+          tar czf nexusedge-talos-daemon-pi5-bookworm-aarch64.tar.gz nexusedge-talos-daemon
+          sha256sum nexusedge-talos-daemon-pi5-bookworm-aarch64.tar.gz > nexusedge-talos-daemon-pi5-bookworm-aarch64.tar.gz.sha256
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/nexusedge-talos-daemon-pi5-bookworm-aarch64.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexusedge-talos-daemon-pi5-bookworm-aarch64
+          path: |
+            release/nexusedge-talos-daemon-pi5-bookworm-aarch64.tar.gz
+            release/nexusedge-talos-daemon-pi5-bookworm-aarch64.tar.gz.sha256
+
+  build-pi4-bookworm:
+    name: Build pi4-bookworm-aarch64
+    runs-on: ubuntu-24.04-arm
+    container: debian:bookworm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PRIVATE_REPO }}
+          token: ${{ secrets.PROJECTOPERATIONS }}
+
+      - name: Install build dependencies
+        run: |
+          rm -f /etc/apt/apt.conf.d/docker-clean
+          apt-get update -qq
+          apt-get install -y -qq curl build-essential pkg-config git ca-certificates libssl-dev
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Build release binary
+        run: |
+          . "$HOME/.cargo/env"
+          cd hardware_daemon && cargo build --release -p nexusedge-talos-daemon
+
+      - name: Package binary
+        run: |
+          mkdir -p release
+          cp hardware_daemon/target/release/nexusedge-talos-daemon release/
+          strip release/nexusedge-talos-daemon || true
+          cd release
+          tar czf nexusedge-talos-daemon-pi4-bookworm-aarch64.tar.gz nexusedge-talos-daemon
+          sha256sum nexusedge-talos-daemon-pi4-bookworm-aarch64.tar.gz > nexusedge-talos-daemon-pi4-bookworm-aarch64.tar.gz.sha256
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/nexusedge-talos-daemon-pi4-bookworm-aarch64.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexusedge-talos-daemon-pi4-bookworm-aarch64
+          path: |
+            release/nexusedge-talos-daemon-pi4-bookworm-aarch64.tar.gz
+            release/nexusedge-talos-daemon-pi4-bookworm-aarch64.tar.gz.sha256
+
+  build-x86:
+    name: Build x86_64-linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PRIVATE_REPO }}
+          token: ${{ secrets.PROJECTOPERATIONS }}
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: x86_64
+
+      - name: Build release binary
+        run: cargo build --release -p nexusedge-talos-daemon
+        working-directory: hardware_daemon
+
+      - name: Package binary
+        run: |
+          mkdir -p release
+          cp hardware_daemon/target/release/nexusedge-talos-daemon release/
+          strip release/nexusedge-talos-daemon || true
+          cd release
+          tar czf nexusedge-talos-daemon-x86_64-linux.tar.gz nexusedge-talos-daemon
+          sha256sum nexusedge-talos-daemon-x86_64-linux.tar.gz > nexusedge-talos-daemon-x86_64-linux.tar.gz.sha256
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/nexusedge-talos-daemon-x86_64-linux.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexusedge-talos-daemon-x86_64-linux
+          path: |
+            release/nexusedge-talos-daemon-x86_64-linux.tar.gz
+            release/nexusedge-talos-daemon-x86_64-linux.tar.gz.sha256
+
+  docker:
+    name: Docker images
+    needs: [build-pi5, build-x86]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PRIVATE_REPO }}
+          token: ${{ secrets.PROJECTOPERATIONS }}
+
+      - name: Download x86_64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: nexusedge-talos-daemon-x86_64-linux
+          path: release-x86
+
+      - name: Download Pi5 ARM64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: nexusedge-talos-daemon-pi5-bookworm-aarch64
+          path: release-arm64
+
+      - name: Extract binaries
+        run: |
+          cd release-x86 && tar xzf nexusedge-talos-daemon-x86_64-linux.tar.gz
+          cd ../release-arm64 && tar xzf nexusedge-talos-daemon-pi5-bookworm-aarch64.tar.gz
+
+      - name: Create Dockerfile
+        run: |
+          cat > Dockerfile.release << 'DEOF'
+          FROM debian:bookworm-slim
+          ARG BINARY_PATH=release-x86/nexusedge-talos-daemon
+          RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+          COPY ${BINARY_PATH} /usr/local/bin/nexusedge-talos-daemon
+          RUN chmod +x /usr/local/bin/nexusedge-talos-daemon
+          EXPOSE 6100
+          ENTRYPOINT ["/usr/local/bin/nexusedge-talos-daemon"]
+          DEOF
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build and push (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.release
+          push: true
+          platforms: linux/amd64
+          build-args: BINARY_PATH=release-x86/nexusedge-talos-daemon
+          tags: ghcr.io/automatanexus/talos-daemon:${{ steps.version.outputs.tag }}-amd64
+
+      - name: Build and push (arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.release
+          push: true
+          platforms: linux/arm64
+          build-args: BINARY_PATH=release-arm64/nexusedge-talos-daemon
+          tags: ghcr.io/automatanexus/talos-daemon:${{ steps.version.outputs.tag }}-arm64
+
+      - name: Create multi-arch manifest
+        run: |
+          docker buildx imagetools create -t ghcr.io/automatanexus/talos-daemon:${{ steps.version.outputs.tag }} \
+            ghcr.io/automatanexus/talos-daemon:${{ steps.version.outputs.tag }}-amd64 \
+            ghcr.io/automatanexus/talos-daemon:${{ steps.version.outputs.tag }}-arm64
+          docker buildx imagetools create -t ghcr.io/automatanexus/talos-daemon:latest \
+            ghcr.io/automatanexus/talos-daemon:${{ steps.version.outputs.tag }}-amd64 \
+            ghcr.io/automatanexus/talos-daemon:${{ steps.version.outputs.tag }}-arm64
+
+  release:
+    name: Create GitHub Release
+    needs: [build-pi5, build-pi4-bookworm, build-x86, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

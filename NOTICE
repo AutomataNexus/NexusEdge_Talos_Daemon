@@ -1,0 +1,69 @@
+NexusEdge Hailo Community Edition
+Copyright 2026 AutomataNexus LLC
+Wolcottville, Indiana 46795, USA
+https://automatanexus.com
+
+Author: Andrew Jewell Sr.
+ORCID: 0009-0005-2158-7060
+
+================================================================================
+LICENSE SCOPE
+================================================================================
+
+This project uses a SPLIT LICENSE model:
+
+  APACHE-2.0 (Open Source)
+  ─────────────────────────
+  The following components are licensed under the Apache License 2.0:
+    • Leptos frontend UI components (src/components/, src/pages/)
+    • Tauri IPC bridge bindings (src/bindings.rs)
+    • Site configuration parser (crates/nexusedge-shared/)
+    • Shared type definitions (equipment, signal, alarms, weather)
+    • CSS stylesheets (style/)
+
+  PROPRIETARY EULA (see EULA.md)
+  ─────────────────────────
+  The following components are proprietary and distributed as compiled
+  binaries only. They are governed exclusively by the EULA:
+    • NexusEdge single binary (Talos control engine + AegisDB + NexusVault +
+      web server + inference engine + training pipeline)
+    • All 42 control algorithms (TMC, PID, cascade, lead/lag, zone reheat,
+      and all equipment-type-specific algorithms)
+    • Sobek Neural Network Suite (48 models: 24 Nehebkau LSTM + 24 Medjed GRU,
+      .axonml weights + .hef Hailo execution files)
+    • Sage LLM (on-device language model)
+    • NexusRT (Hailo NPU runtime bridge)
+    • nexus-serve (model inference server)
+    • AxonML on-controller training pipeline
+
+================================================================================
+THIRD-PARTY NOTICES
+================================================================================
+
+This software incorporates components from the following open source projects.
+See THIRD_PARTY_LICENSES.md for full license texts.
+
+  Rust Ecosystem (MIT OR Apache-2.0):
+    tokio, serde, axum, reqwest, chrono, uuid, tracing, parking_lot
+
+  Tauri Framework (MIT OR Apache-2.0):
+    tauri, tauri-build, tauri-plugin-shell
+
+  Leptos Framework (MIT):
+    leptos, leptos_router, leptos_meta
+
+  Hailo SDK:
+    HailoRT — subject to Hailo's SDK license terms
+
+  Sequent Microsystems:
+    rppal (Raspberry Pi Peripheral Access Library) — MIT
+
+  AutomataNexus Open Source Libraries:
+    AxonML v0.6.3 — MIT OR Apache-2.0
+    NexusCompress — MIT OR Apache-2.0
+    NexusShield — MIT
+    FerrumEmail — MIT OR Apache-2.0
+
+  AutomataNexus Source-Available Libraries:
+    AegisDB — BSL-1.1 (Business Source License 1.1)
+    NexusPulse — BSL-1.1
