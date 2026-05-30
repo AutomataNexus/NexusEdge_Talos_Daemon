@@ -1,0 +1,76 @@
+name: Release Pi4 Bullseye (aarch64)
+
+on:
+  push:
+    tags:
+      - 'v*-pi4-bullseye'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  actions: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PRIVATE_REPO: AutomataNexus/Talos
+
+jobs:
+  build-pi4-bullseye:
+    name: Build pi4-bullseye-aarch64
+    runs-on: ubuntu-24.04-arm
+    container: debian:bullseye
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq curl build-essential pkg-config git ca-certificates
+          apt-get install -y -qq libssl-dev
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PRIVATE_REPO }}
+          token: ${{ secrets.PROJECTOPERATIONS }}
+
+      - name: Build release binary
+        run: |
+          . "$HOME/.cargo/env"
+          cd hardware_daemon && cargo build --release -p nexusedge-talos-daemon
+
+      - name: Package binary
+        run: |
+          mkdir -p release
+          cp hardware_daemon/target/release/nexusedge-talos-daemon release/
+          strip release/nexusedge-talos-daemon || true
+          cd release
+          tar czf nexusedge-talos-daemon-pi4-bullseye-aarch64.tar.gz nexusedge-talos-daemon
+          sha256sum nexusedge-talos-daemon-pi4-bullseye-aarch64.tar.gz > nexusedge-talos-daemon-pi4-bullseye-aarch64.tar.gz.sha256
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/nexusedge-talos-daemon-pi4-bullseye-aarch64.tar.gz
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/nexusedge-talos-daemon-pi4-bullseye-aarch64.tar.gz
+            release/nexusedge-talos-daemon-pi4-bullseye-aarch64.tar.gz.sha256
+          tag_name: ${{ github.ref_name }}
+          name: "Talos Daemon Pi4 Bullseye aarch64 — ${{ github.ref_name }}"
+          body: |
+            Talos I2C hardware daemon for Pi 4 running Raspbian Bullseye (aarch64).
+            SLSA Build L3 attested.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
