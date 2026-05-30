@@ -249,10 +249,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all artifacts
+      - name: Download Pi5 artifact
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: nexusedge-talos-daemon-pi5-bookworm-aarch64
+          path: artifacts/pi5
+
+      - name: Download Pi4 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nexusedge-talos-daemon-pi4-bookworm-aarch64
+          path: artifacts/pi4
+
+      - name: Download x86_64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nexusedge-talos-daemon-x86_64-linux
+          path: artifacts/x86
 
       - name: Create release
         uses: softprops/action-gh-release@v2
